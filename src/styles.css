@@ -27,6 +27,18 @@ body {
   overflow-x: hidden;
 }
 
+body.is-loading {
+  height: 100vh;
+  overflow: hidden;
+}
+
+body.is-loading .top-strip,
+body.is-loading main,
+body.is-loading .site-footer {
+  opacity: 0;
+  visibility: hidden;
+}
+
 body::before,
 body::after {
   position: fixed;
@@ -63,6 +75,11 @@ body::after {
   z-index: -2;
 }
 
+body.is-loading #bulltism-canvas {
+  z-index: 24;
+  background: var(--paper);
+}
+
 .paper-noise {
   position: fixed;
   inset: 0;
@@ -77,6 +94,53 @@ body::after {
   opacity: 0.7;
 }
 
+body.is-loading .paper-noise {
+  z-index: 25;
+  opacity: 0.42;
+}
+
+.intro-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 32;
+  display: grid;
+  place-items: end center;
+  overflow: hidden;
+  pointer-events: none;
+  padding-bottom: clamp(1.8rem, 5vw, 3rem);
+  opacity: 0;
+  visibility: hidden;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 16%, rgba(0, 0, 0, 0.08) 17% 19%, transparent 20% 28%, rgba(0, 0, 0, 0.08) 29% 31%, transparent 32%),
+    repeating-conic-gradient(from -3deg at 50% 50%, rgba(0, 0, 0, 0.2) 0deg 1.4deg, transparent 1.4deg 8deg);
+  mix-blend-mode: normal;
+}
+
+body.is-loading .intro-loader {
+  opacity: 1;
+  visibility: visible;
+  animation: loader-fade 4s linear forwards;
+}
+
+.intro-loader::before,
+.intro-loader::after {
+  position: absolute;
+  inset: -18%;
+  content: "";
+  border: 7px solid var(--ink);
+  transform: rotate(-2deg) scale(0.78);
+  opacity: 0.42;
+  animation: tunnel-pulse 900ms linear infinite;
+}
+
+.intro-loader::after {
+  inset: -4%;
+  border-width: 4px;
+  transform: rotate(2deg) scale(0.9);
+  animation-duration: 640ms;
+  animation-direction: reverse;
+}
+
 img {
   display: block;
   max-width: 100%;
@@ -85,6 +149,29 @@ img {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+@keyframes loader-fade {
+  0%,
+  82% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes tunnel-pulse {
+  from {
+    scale: 0.76;
+    opacity: 0.12;
+  }
+
+  to {
+    scale: 1.28;
+    opacity: 0.48;
+  }
 }
 
 .top-strip {

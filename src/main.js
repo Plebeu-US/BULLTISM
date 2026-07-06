@@ -19,9 +19,12 @@ const clock = new THREE.Clock();
 const pointer = new THREE.Vector2();
 const scroll = { current: 0, target: 0 };
 const palette = [0xef2d22, 0xffdf34, 0x0768b7, 0x35a849, 0xff8f1f];
+const LOADER_DURATION = 4;
+const loaderState = { active: true, released: false };
+const introLoader = document.querySelector('.intro-loader');
 
 const imageAssets = [
-  { src: '/assets/logo.jpg', title: 'logo' },
+  { src: '/assets/logo.png', title: 'logo' },
   { src: '/assets/banner.jpg', title: 'banner' },
   { src: '/assets/card-uno.jpg', title: 'uno' },
   { src: '/assets/trading-room-a.jpg', title: 'trading' },
@@ -107,8 +110,11 @@ const world = new THREE.Group();
 const scribbles = new THREE.Group();
 const photoGroup = new THREE.Group();
 const crayonGroup = new THREE.Group();
+const introGroup = new THREE.Group();
 scene.add(world);
+scene.add(introGroup);
 world.add(scribbles, photoGroup, crayonGroup);
+world.visible = false;
 
 const sizes = {
   width: window.innerWidth,
@@ -137,6 +143,7 @@ function makeWobblyMaterial(texture, colorBoost = 1) {
       uTime: { value: 0 },
       uMouse: { value: pointer },
       uBoost: { value: colorBoost },
+      uAlpha: { value: 1 },
     },
     transparent: true,
     side: THREE.DoubleSide,
@@ -166,6 +173,7 @@ function makeWobblyMaterial(texture, colorBoost = 1) {
       uniform sampler2D uTexture;
       uniform float uTime;
       uniform float uBoost;
+      uniform float uAlpha;
       varying vec2 vUv;
       varying float vWobble;
 
@@ -187,7 +195,7 @@ function makeWobblyMaterial(texture, colorBoost = 1) {
         float border = smoothstep(0.03, 0.0, min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y)));
         tex.rgb = mix(tex.rgb, vec3(0.0), border * 0.85);
 
-        gl_FragColor = tex;
+        gl_FragColor = vec4(tex.rgb, tex.a * uAlpha);
       }
     `,
   });
@@ -268,6 +276,22 @@ function createCrayonDots() {
   return points;
 }
 
+function easeOutCubic(value) {
+  return 1 - Math.pow(1 - value, 3);
+}
+
+function releaseLoader() {
+  if (loaderState.released) return;
+
+  loaderState.active = false;
+  loaderState.released = true;
+  introGroup.visible = false;
+  world.visible = true;
+  document.body.classList.remove('is-loading');
+  document.body.classList.add('is-loaded');
+  introLoader?.setAttribute('aria-hidden', 'true');
+}
+
 const textureLoader = new THREE.TextureLoader();
 textureLoader.setCrossOrigin('anonymous');
 
@@ -305,6 +329,29 @@ imageAssets.forEach((asset, index) => {
     mesh.add(outline);
 
     photoGroup.add(mesh);
+
+    const introWidth = isBanner ? 3.65 : 1.48 + (index % 4) * 0.18;
+    const introHeight = introWidth / ratio;
+    const introMaterial = makeWobblyMaterial(texture, 1.55);
+    introMaterial.depthTest = false;
+    introMaterial.depthWrite = false;
+    introMaterial.uniforms.uAlpha.value = 0;
+
+    const introMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(introWidth, introHeight, 18, 18),
+      introMaterial,
+    );
+    introMesh.renderOrder = 30 + index;
+    introMesh.rotation.z = THREE.MathUtils.degToRad((index % 2 ? -1 : 1) * (8 + index * 2));
+    introMesh.userData = {
+      introIndex: index,
+      baseRotation: introMesh.rotation.z,
+      laneX: Math.sin(index * 1.83) * (0.48 + (index % 3) * 0.18),
+      laneY: Math.cos(index * 2.17) * (0.32 + (index % 4) * 0.1),
+      maxScale: isBanner ? 2.6 : 3.15 + (index % 3) * 0.35,
+    };
+    introMesh.add(makeOutline(introWidth, introHeight));
+    introGroup.add(introMesh);
   });
 });
 
@@ -331,12 +378,50 @@ function onScroll() {
   scroll.target = window.scrollY || document.documentElement.scrollTop;
 }
 
+function animateIntro(elapsed) {
+  introGroup.visible = true;
+  introGroup.rotation.z = Math.sin(elapsed * 1.1) * 0.025;
+  introGroup.rotation.x = Math.sin(elapsed * 0.8) * 0.035;
+  introGroup.rotation.y = Math.cos(elapsed * 0.7) * 0.035;
+
+  introGroup.children.forEach((mesh, index) => {
+    const start = index * 0.22;
+    const duration = 1.22;
+    const raw = (elapsed - start) / duration;
+    const t = THREE.MathUtils.clamp(raw, 0, 1);
+    const eased = easeOutCubic(t);
+    const visible = raw >= 0 && raw <= 1.04;
+    const alphaIn = THREE.MathUtils.smoothstep(t, 0.02, 0.2);
+    const alphaOut = 1 - THREE.MathUtils.smoothstep(t, 0.72, 1);
+    const alpha = visible ? Math.max(0, Math.min(1, alphaIn * alphaOut)) : 0;
+    const endX = mesh.userData.laneX * sizes.frustum * sizes.aspect;
+    const endY = mesh.userData.laneY * sizes.frustum;
+    const scale = THREE.MathUtils.lerp(0.045, mesh.userData.maxScale, eased * eased);
+
+    mesh.visible = alpha > 0.01;
+    mesh.position.x = THREE.MathUtils.lerp(0, endX, eased);
+    mesh.position.y = THREE.MathUtils.lerp(0, endY, eased);
+    mesh.position.z = 3.2 + index * 0.01;
+    mesh.scale.setScalar(scale);
+    mesh.rotation.z = mesh.userData.baseRotation + Math.sin(elapsed * 4 + index) * 0.12 + eased * 0.24;
+    mesh.material.uniforms.uTime.value = elapsed * 2.2 + index * 0.31;
+    mesh.material.uniforms.uAlpha.value = alpha;
+  });
+}
+
 function animate() {
   const elapsed = clock.getElapsedTime();
   scroll.current += (scroll.target - scroll.current) * 0.08;
 
   background.material.uniforms.uTime.value = elapsed;
   background.material.uniforms.uScroll.value = scroll.current;
+
+  if (loaderState.active) {
+    animateIntro(elapsed);
+    if (elapsed >= LOADER_DURATION) {
+      releaseLoader();
+    }
+  }
 
   world.rotation.z = Math.sin(elapsed * 0.22) * 0.018 + pointer.x * 0.012;
   world.position.y = scroll.current * 0.0015;
