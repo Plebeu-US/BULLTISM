@@ -20,7 +20,9 @@ const pointer = new THREE.Vector2();
 const scroll = { current: 0, target: 0 };
 const palette = [0xef2d22, 0xffdf34, 0x0768b7, 0x35a849, 0xff8f1f];
 const LOADER_DURATION = 4;
+const IDLE_DELAY = 1.45;
 const loaderState = { active: true, released: false };
+const idle = { current: 0, target: 0, lastActivity: 0 };
 const introLoader = document.querySelector('.intro-loader');
 
 const imageAssets = [
@@ -48,18 +50,22 @@ const background = new THREE.Mesh(
       uTime: { value: 0 },
       uPointer: { value: pointer },
       uScroll: { value: 0 },
+      uIdle: { value: 0 },
     },
     vertexShader: `
       varying vec2 vUv;
       uniform float uTime;
       uniform vec2 uPointer;
       uniform float uScroll;
+      uniform float uIdle;
 
       void main() {
         vUv = uv;
         vec3 p = position;
-        float wave = sin((p.x * 10.0) + uTime * 0.9) * 0.012;
-        wave += sin((p.y * 13.0) - uTime * 0.7) * 0.01;
+        float water = 1.0 + uIdle * 3.6;
+        float wave = sin((p.x * 10.0) + uTime * 0.9) * 0.012 * water;
+        wave += sin((p.y * 13.0) - uTime * 0.7) * 0.01 * water;
+        wave += sin(length(p.xy) * 24.0 - uTime * 2.2) * 0.01 * uIdle;
         p.z += wave + (uPointer.x + uPointer.y) * 0.006;
         gl_Position = vec4(p, 1.0);
       }
@@ -71,6 +77,7 @@ const background = new THREE.Mesh(
       uniform float uTime;
       uniform vec2 uPointer;
       uniform float uScroll;
+      uniform float uIdle;
 
       float hash(vec2 p) {
         return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -83,6 +90,9 @@ const background = new THREE.Mesh(
 
       void main() {
         vec2 uv = vUv;
+        vec2 center = uv - 0.5;
+        float ripple = sin(length(center) * 44.0 - uTime * 2.8) * 0.0028 * uIdle;
+        uv += normalize(center + 0.0001) * ripple;
         float n = hash(floor(uv * 260.0 + uTime * 0.15));
         float paper = 0.92 + n * 0.075;
         vec3 color = vec3(paper, paper * 0.985, paper * 0.94);
@@ -94,6 +104,7 @@ const background = new THREE.Mesh(
         color = mix(color, vec3(0.95, 0.08, 0.05), red * 0.16);
         color = mix(color, vec3(1.0, 0.85, 0.06), yellow * 0.18);
         color = mix(color, vec3(0.02, 0.35, 0.72), blue * 0.13);
+        color += vec3(0.11, 0.19, 0.18) * max(0.0, ripple * 160.0) * uIdle;
 
         float vignette = distance(uv, vec2(0.5));
         color *= 1.06 - vignette * 0.22;
@@ -105,6 +116,99 @@ const background = new THREE.Mesh(
 );
 background.position.z = -4;
 scene.add(background);
+
+const idleWaterOverlay = new THREE.Mesh(
+  new THREE.PlaneGeometry(2, 2, 96, 96),
+  new THREE.ShaderMaterial({
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    uniforms: {
+      uTime: { value: 0 },
+      uIdle: { value: 0 },
+      uPointer: { value: pointer },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      uniform float uTime;
+      uniform float uIdle;
+
+      void main() {
+        vUv = uv;
+        vec3 p = position;
+        vec2 c = p.xy;
+        float ring = sin(length(c) * 16.0 - uTime * 2.0) * 0.012 * uIdle;
+        p.xy += normalize(c + 0.0001) * ring;
+        gl_Position = vec4(p.xy, 0.72, 1.0);
+      }
+    `,
+    fragmentShader: `
+      precision highp float;
+
+      varying vec2 vUv;
+      uniform float uTime;
+      uniform float uIdle;
+      uniform vec2 uPointer;
+
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+      }
+
+      float bubble(vec2 uv, vec2 center, float radius, float width) {
+        float d = distance(uv, center);
+        float outer = 1.0 - smoothstep(radius, radius + width, d);
+        float inner = smoothstep(radius - width, radius, d);
+        float ring = outer * inner;
+        float glint = 1.0 - smoothstep(0.0, radius * 0.42, distance(uv, center + vec2(-radius * 0.25, radius * 0.22)));
+        return ring + glint * 0.36;
+      }
+
+      void main() {
+        vec2 uv = vUv;
+        vec2 waveUv = uv;
+        waveUv.x += sin(uv.y * 24.0 + uTime * 0.9) * 0.012;
+        waveUv.y += cos(uv.x * 30.0 - uTime * 1.1) * 0.012;
+
+        float caustic = sin((waveUv.x + waveUv.y) * 34.0 + uTime * 1.7);
+        caustic *= sin((waveUv.x - waveUv.y) * 27.0 - uTime * 1.25);
+        caustic = smoothstep(0.42, 0.95, caustic);
+
+        float bubbles = 0.0;
+        for (int i = 0; i < 12; i++) {
+          float fi = float(i);
+          vec2 seed = vec2(hash(vec2(fi, 1.7)), hash(vec2(fi, 9.2)));
+          vec2 center = seed;
+          center.y = fract(center.y + uTime * (0.018 + fi * 0.002));
+          center.x += sin(uTime * 0.35 + fi) * 0.025;
+          bubbles += bubble(uv, center, 0.045 + hash(seed * 5.0) * 0.09, 0.006 + hash(seed * 7.0) * 0.006);
+        }
+
+        float bigBubbles = 0.0;
+        bigBubbles += bubble(uv, vec2(0.22 + sin(uTime * 0.22) * 0.025, 0.28), 0.16, 0.009);
+        bigBubbles += bubble(uv, vec2(0.56 + sin(uTime * 0.18 + 2.0) * 0.03, 0.44), 0.21, 0.011);
+        bigBubbles += bubble(uv, vec2(0.82 + sin(uTime * 0.2 + 4.0) * 0.02, 0.72), 0.14, 0.008);
+        bubbles += bigBubbles * 0.9;
+
+        vec2 centerUv = uv - 0.5;
+        float centerRipple = sin(length(centerUv) * 46.0 - uTime * 2.4) * 0.5 + 0.5;
+        centerRipple *= 1.0 - smoothstep(0.05, 0.72, length(centerUv));
+
+        vec3 water = mix(vec3(0.64, 0.96, 1.0), vec3(0.08, 0.53, 0.72), caustic * 0.55);
+        water += vec3(1.0) * bubbles * 0.72;
+        water += vec3(0.45, 0.9, 1.0) * centerRipple * 0.28;
+
+        float alpha = (caustic * 0.22 + bubbles * 0.52 + bigBubbles * 0.18 + centerRipple * 0.08) * uIdle;
+        alpha = min(alpha, 0.52);
+        alpha *= smoothstep(0.0, 0.35, uIdle);
+
+        gl_FragColor = vec4(water, alpha);
+      }
+    `,
+  }),
+);
+idleWaterOverlay.renderOrder = 80;
+idleWaterOverlay.frustumCulled = false;
+scene.add(idleWaterOverlay);
 
 const world = new THREE.Group();
 const scribbles = new THREE.Group();
@@ -144,12 +248,14 @@ function makeWobblyMaterial(texture, colorBoost = 1) {
       uMouse: { value: pointer },
       uBoost: { value: colorBoost },
       uAlpha: { value: 1 },
+      uIdle: { value: 0 },
     },
     transparent: true,
     side: THREE.DoubleSide,
     vertexShader: `
       uniform float uTime;
       uniform vec2 uMouse;
+      uniform float uIdle;
       varying vec2 vUv;
       varying float vWobble;
 
@@ -157,12 +263,14 @@ function makeWobblyMaterial(texture, colorBoost = 1) {
         vUv = uv;
         vec3 p = position;
         float edge = max(abs(p.x), abs(p.y));
-        float wobble = sin(p.x * 9.0 + uTime * 1.7) * 0.028;
-        wobble += cos(p.y * 11.0 - uTime * 1.2) * 0.022;
-        wobble += sin((p.x + p.y) * 15.0 + uTime) * 0.015;
+        float idleWave = 1.0 + uIdle * 3.2;
+        float wobble = sin(p.x * 9.0 + uTime * 1.7) * 0.028 * idleWave;
+        wobble += cos(p.y * 11.0 - uTime * 1.2) * 0.022 * idleWave;
+        wobble += sin((p.x + p.y) * 15.0 + uTime) * 0.015 * idleWave;
+        wobble += sin(length(p.xy) * 18.0 - uTime * 2.5) * 0.03 * uIdle;
         p.z += wobble * (0.4 + edge);
-        p.x += sin(p.y * 17.0 + uTime * 0.8) * 0.018;
-        p.y += cos(p.x * 13.0 - uTime * 0.6) * 0.018;
+        p.x += sin(p.y * 17.0 + uTime * 0.8) * 0.018 * idleWave;
+        p.y += cos(p.x * 13.0 - uTime * 0.6) * 0.018 * idleWave;
         vWobble = wobble;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
       }
@@ -174,6 +282,7 @@ function makeWobblyMaterial(texture, colorBoost = 1) {
       uniform float uTime;
       uniform float uBoost;
       uniform float uAlpha;
+      uniform float uIdle;
       varying vec2 vUv;
       varying float vWobble;
 
@@ -183,14 +292,18 @@ function makeWobblyMaterial(texture, colorBoost = 1) {
 
       void main() {
         vec2 uv = vUv;
-        uv.x += sin(uv.y * 34.0 + uTime * 1.5) * 0.004;
-        uv.y += cos(uv.x * 28.0 - uTime * 1.1) * 0.004;
+        float idleWave = 1.0 + uIdle * 5.0;
+        vec2 center = uv - 0.5;
+        uv.x += sin(uv.y * 34.0 + uTime * 1.5) * 0.004 * idleWave;
+        uv.y += cos(uv.x * 28.0 - uTime * 1.1) * 0.004 * idleWave;
+        uv += normalize(center + 0.0001) * sin(length(center) * 36.0 - uTime * 2.4) * 0.007 * uIdle;
         vec4 tex = texture2D(uTexture, uv);
 
         float grain = hash(floor(uv * 500.0 + uTime * 0.4));
         tex.rgb = pow(tex.rgb, vec3(0.92));
         tex.rgb *= 0.94 + grain * 0.13 + abs(vWobble) * 2.0;
         tex.rgb = mix(tex.rgb, tex.rgb * vec3(1.08, 1.02, 0.92), 0.2 * uBoost);
+        tex.rgb += vec3(0.08, 0.18, 0.18) * max(0.0, sin((uv.x + uv.y) * 42.0 + uTime * 1.6)) * uIdle * 0.22;
 
         float border = smoothstep(0.03, 0.0, min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y)));
         tex.rgb = mix(tex.rgb, vec3(0.0), border * 0.85);
@@ -290,6 +403,7 @@ function releaseLoader() {
   document.body.classList.remove('is-loading');
   document.body.classList.add('is-loaded');
   introLoader?.setAttribute('aria-hidden', 'true');
+  registerActivity();
 }
 
 const textureLoader = new THREE.TextureLoader();
@@ -369,12 +483,19 @@ function updateDomWiggle() {
   });
 }
 
+function registerActivity() {
+  idle.lastActivity = clock.getElapsedTime();
+  idle.target = 0;
+}
+
 function onPointerMove(event) {
+  registerActivity();
   pointer.x = (event.clientX / window.innerWidth - 0.5) * 2;
   pointer.y = -(event.clientY / window.innerHeight - 0.5) * 2;
 }
 
 function onScroll() {
+  registerActivity();
   scroll.target = window.scrollY || document.documentElement.scrollTop;
 }
 
@@ -412,9 +533,15 @@ function animateIntro(elapsed) {
 function animate() {
   const elapsed = clock.getElapsedTime();
   scroll.current += (scroll.target - scroll.current) * 0.08;
+  idle.target = !loaderState.active && elapsed - idle.lastActivity > IDLE_DELAY ? 1 : 0;
+  idle.current += (idle.target - idle.current) * (idle.target > idle.current ? 0.035 : 0.18);
+  const effectiveIdle = loaderState.active ? 0 : idle.current;
 
   background.material.uniforms.uTime.value = elapsed;
   background.material.uniforms.uScroll.value = scroll.current;
+  background.material.uniforms.uIdle.value = effectiveIdle;
+  idleWaterOverlay.material.uniforms.uTime.value = elapsed;
+  idleWaterOverlay.material.uniforms.uIdle.value = effectiveIdle;
 
   if (loaderState.active) {
     animateIntro(elapsed);
@@ -431,6 +558,7 @@ function animate() {
 
   photoGroup.children.forEach((mesh, index) => {
     mesh.material.uniforms.uTime.value = elapsed + index;
+    mesh.material.uniforms.uIdle.value = effectiveIdle;
     mesh.position.x = mesh.userData.baseX + Math.sin(elapsed * mesh.userData.speed + index) * mesh.userData.range;
     mesh.position.y = mesh.userData.baseY + Math.cos(elapsed * mesh.userData.speed * 0.9 + index) * mesh.userData.range;
     mesh.rotation.z += Math.sin(elapsed + index) * 0.0007;
@@ -453,7 +581,11 @@ function animate() {
 
 updateCamera();
 updateDomWiggle();
+registerActivity();
 window.addEventListener('resize', updateCamera);
 window.addEventListener('pointermove', onPointerMove);
 window.addEventListener('scroll', onScroll, { passive: true });
+window.addEventListener('wheel', registerActivity, { passive: true });
+window.addEventListener('touchmove', registerActivity, { passive: true });
+window.addEventListener('keydown', registerActivity);
 animate();
