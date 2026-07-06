@@ -27,7 +27,6 @@ const introLoader = document.querySelector('.intro-loader');
 
 const imageAssets = [
   { src: '/assets/logo.png', title: 'logo' },
-  { src: '/assets/banner.jpg', title: 'banner' },
   { src: '/assets/card-uno.jpg', title: 'uno' },
   { src: '/assets/trading-room-a.jpg', title: 'trading' },
   { src: '/assets/empty-court.jpg', title: 'court' },
