@@ -1,0 +1,374 @@
+import * as THREE from 'three';
+import './styles.css';
+
+const canvas = document.querySelector('#bulltism-canvas');
+const scene = new THREE.Scene();
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+camera.position.z = 8;
+
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: true,
+  alpha: true,
+  preserveDrawingBuffer: true,
+  powerPreference: 'high-performance',
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+
+const clock = new THREE.Clock();
+const pointer = new THREE.Vector2();
+const scroll = { current: 0, target: 0 };
+const palette = [0xef2d22, 0xffdf34, 0x0768b7, 0x35a849, 0xff8f1f];
+
+const imageAssets = [
+  { src: '/assets/logo.jpg', title: 'logo' },
+  { src: '/assets/banner.jpg', title: 'banner' },
+  { src: '/assets/card-uno.jpg', title: 'uno' },
+  { src: '/assets/trading-room-a.jpg', title: 'trading' },
+  { src: '/assets/empty-court.jpg', title: 'court' },
+  { src: '/assets/chosen-one.jpg', title: 'chosen' },
+  { src: '/assets/foam-flight.jpg', title: 'espuma' },
+  { src: '/assets/grass-juice.jpg', title: 'grama' },
+  { src: '/assets/cloud-walk.jpg', title: 'sky' },
+  { src: '/assets/candle-bull.jpg', title: 'candle' },
+  { src: '/assets/bored-portrait.jpg', title: 'bored' },
+  { src: '/assets/blue-book.jpg', title: 'book' },
+  { src: '/assets/trading-room-b.jpg', title: 'trading 2' },
+];
+
+const background = new THREE.Mesh(
+  new THREE.PlaneGeometry(2, 2, 80, 80),
+  new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    uniforms: {
+      uTime: { value: 0 },
+      uPointer: { value: pointer },
+      uScroll: { value: 0 },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      uniform float uTime;
+      uniform vec2 uPointer;
+      uniform float uScroll;
+
+      void main() {
+        vUv = uv;
+        vec3 p = position;
+        float wave = sin((p.x * 10.0) + uTime * 0.9) * 0.012;
+        wave += sin((p.y * 13.0) - uTime * 0.7) * 0.01;
+        p.z += wave + (uPointer.x + uPointer.y) * 0.006;
+        gl_Position = vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: `
+      precision highp float;
+
+      varying vec2 vUv;
+      uniform float uTime;
+      uniform vec2 uPointer;
+      uniform float uScroll;
+
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+      }
+
+      float lineGrid(float value, float count, float thickness) {
+        float d = abs(fract(value * count) - 0.5);
+        return smoothstep(thickness, 0.0, d);
+      }
+
+      void main() {
+        vec2 uv = vUv;
+        float n = hash(floor(uv * 260.0 + uTime * 0.15));
+        float paper = 0.92 + n * 0.075;
+        vec3 color = vec3(paper, paper * 0.985, paper * 0.94);
+
+        float red = lineGrid(uv.x + sin(uv.y * 17.0 + uTime) * 0.002, 7.0, 0.015);
+        float yellow = lineGrid(uv.y + sin(uv.x * 19.0 - uTime) * 0.002, 5.0, 0.012);
+        float blue = lineGrid(uv.x + uv.y * 0.13 + uScroll * 0.0002, 4.0, 0.011);
+
+        color = mix(color, vec3(0.95, 0.08, 0.05), red * 0.16);
+        color = mix(color, vec3(1.0, 0.85, 0.06), yellow * 0.18);
+        color = mix(color, vec3(0.02, 0.35, 0.72), blue * 0.13);
+
+        float vignette = distance(uv, vec2(0.5));
+        color *= 1.06 - vignette * 0.22;
+
+        gl_FragColor = vec4(color, 0.96);
+      }
+    `,
+  }),
+);
+background.position.z = -4;
+scene.add(background);
+
+const world = new THREE.Group();
+const scribbles = new THREE.Group();
+const photoGroup = new THREE.Group();
+const crayonGroup = new THREE.Group();
+scene.add(world);
+world.add(scribbles, photoGroup, crayonGroup);
+
+const sizes = {
+  width: window.innerWidth,
+  height: window.innerHeight,
+  aspect: window.innerWidth / window.innerHeight,
+  frustum: 6,
+};
+
+function updateCamera() {
+  sizes.width = window.innerWidth;
+  sizes.height = window.innerHeight;
+  sizes.aspect = sizes.width / sizes.height;
+  sizes.frustum = sizes.aspect > 1 ? 6 : 8.5;
+  camera.left = (-sizes.frustum * sizes.aspect) / 2;
+  camera.right = (sizes.frustum * sizes.aspect) / 2;
+  camera.top = sizes.frustum / 2;
+  camera.bottom = -sizes.frustum / 2;
+  camera.updateProjectionMatrix();
+  renderer.setSize(sizes.width, sizes.height);
+}
+
+function makeWobblyMaterial(texture, colorBoost = 1) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uTexture: { value: texture },
+      uTime: { value: 0 },
+      uMouse: { value: pointer },
+      uBoost: { value: colorBoost },
+    },
+    transparent: true,
+    side: THREE.DoubleSide,
+    vertexShader: `
+      uniform float uTime;
+      uniform vec2 uMouse;
+      varying vec2 vUv;
+      varying float vWobble;
+
+      void main() {
+        vUv = uv;
+        vec3 p = position;
+        float edge = max(abs(p.x), abs(p.y));
+        float wobble = sin(p.x * 9.0 + uTime * 1.7) * 0.028;
+        wobble += cos(p.y * 11.0 - uTime * 1.2) * 0.022;
+        wobble += sin((p.x + p.y) * 15.0 + uTime) * 0.015;
+        p.z += wobble * (0.4 + edge);
+        p.x += sin(p.y * 17.0 + uTime * 0.8) * 0.018;
+        p.y += cos(p.x * 13.0 - uTime * 0.6) * 0.018;
+        vWobble = wobble;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: `
+      precision highp float;
+
+      uniform sampler2D uTexture;
+      uniform float uTime;
+      uniform float uBoost;
+      varying vec2 vUv;
+      varying float vWobble;
+
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(41.0, 289.0))) * 9358.5453);
+      }
+
+      void main() {
+        vec2 uv = vUv;
+        uv.x += sin(uv.y * 34.0 + uTime * 1.5) * 0.004;
+        uv.y += cos(uv.x * 28.0 - uTime * 1.1) * 0.004;
+        vec4 tex = texture2D(uTexture, uv);
+
+        float grain = hash(floor(uv * 500.0 + uTime * 0.4));
+        tex.rgb = pow(tex.rgb, vec3(0.92));
+        tex.rgb *= 0.94 + grain * 0.13 + abs(vWobble) * 2.0;
+        tex.rgb = mix(tex.rgb, tex.rgb * vec3(1.08, 1.02, 0.92), 0.2 * uBoost);
+
+        float border = smoothstep(0.03, 0.0, min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y)));
+        tex.rgb = mix(tex.rgb, vec3(0.0), border * 0.85);
+
+        gl_FragColor = tex;
+      }
+    `,
+  });
+}
+
+function makeOutline(width, height, color = 0x050505) {
+  const shape = new THREE.Shape();
+  const jitter = 0.05;
+  shape.moveTo(-width / 2 - jitter, -height / 2 + 0.02);
+  shape.lineTo(width / 2 + 0.03, -height / 2 - jitter);
+  shape.lineTo(width / 2 - 0.02, height / 2 + jitter);
+  shape.lineTo(-width / 2 - 0.04, height / 2 - 0.03);
+  shape.lineTo(-width / 2 - jitter, -height / 2 + 0.02);
+
+  const points = shape.getPoints(5);
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = new THREE.LineBasicMaterial({ color, linewidth: 4 });
+  return new THREE.Line(geometry, material);
+}
+
+function createCrayonStroke(index) {
+  const points = [];
+  const radius = 2.6 + (index % 5) * 0.42;
+  const loops = 26 + index * 2;
+  for (let i = 0; i < loops; i += 1) {
+    const t = i / (loops - 1);
+    const angle = t * Math.PI * (1.25 + (index % 3) * 0.35) + index;
+    const wobble = Math.sin(t * 24 + index) * 0.16 + Math.cos(t * 17) * 0.08;
+    points.push(
+      new THREE.Vector3(
+        Math.cos(angle) * (radius + wobble) + Math.sin(index) * 1.8,
+        Math.sin(angle * 0.82) * (radius * 0.38 + wobble) + (index - 5) * 0.62,
+        -1.8 - index * 0.02,
+      ),
+    );
+  }
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = new THREE.LineBasicMaterial({
+    color: palette[index % palette.length],
+    transparent: true,
+    opacity: 0.36,
+  });
+  const line = new THREE.Line(geometry, material);
+  line.userData = { speed: 0.18 + index * 0.025, baseY: line.position.y };
+  return line;
+}
+
+function createCrayonDots() {
+  const geometry = new THREE.BufferGeometry();
+  const count = 550;
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const color = new THREE.Color();
+
+  for (let i = 0; i < count; i += 1) {
+    positions[i * 3] = (Math.random() - 0.5) * 14;
+    positions[i * 3 + 1] = (Math.random() - 0.5) * 9;
+    positions[i * 3 + 2] = -2.5 - Math.random() * 1.5;
+    color.setHex(palette[i % palette.length]);
+    colors[i * 3] = color.r;
+    colors[i * 3 + 1] = color.g;
+    colors[i * 3 + 2] = color.b;
+  }
+
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  const material = new THREE.PointsMaterial({
+    size: 0.035,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.5,
+    depthWrite: false,
+  });
+
+  const points = new THREE.Points(geometry, material);
+  points.userData = { positions };
+  return points;
+}
+
+const textureLoader = new THREE.TextureLoader();
+textureLoader.setCrossOrigin('anonymous');
+
+imageAssets.forEach((asset, index) => {
+  textureLoader.load(asset.src, (texture) => {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+
+    const isBanner = asset.src.includes('banner');
+    const ratio = texture.image.width / texture.image.height;
+    const width = isBanner ? 4.2 : 1.55 + (index % 3) * 0.16;
+    const height = width / ratio;
+
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(width, height, 16, 16),
+      makeWobblyMaterial(texture, isBanner ? 1.4 : 1),
+    );
+
+    const row = Math.floor(index / 4);
+    const col = index % 4;
+    mesh.position.x = (col - 1.5) * 2.45 + Math.sin(index * 1.7) * 0.38;
+    mesh.position.y = 1.45 - row * 1.78 + Math.cos(index * 2.1) * 0.2;
+    mesh.position.z = -0.15 + (index % 5) * 0.03;
+    mesh.rotation.z = THREE.MathUtils.degToRad(((index % 2 ? -1 : 1) * (5 + (index % 5) * 3)));
+    mesh.userData = {
+      baseX: mesh.position.x,
+      baseY: mesh.position.y,
+      speed: 0.55 + index * 0.05,
+      range: 0.05 + (index % 4) * 0.03,
+      title: asset.title,
+    };
+
+    const outline = makeOutline(width, height);
+    mesh.add(outline);
+
+    photoGroup.add(mesh);
+  });
+});
+
+for (let i = 0; i < 13; i += 1) {
+  scribbles.add(createCrayonStroke(i));
+}
+crayonGroup.add(createCrayonDots());
+
+function updateDomWiggle() {
+  const letters = document.querySelectorAll('h1 span');
+  letters.forEach((letter, index) => {
+    letter.style.setProperty('--r', `${Math.sin(index * 5.22) * 7 + (index % 2 ? -4 : 4)}deg`);
+    letter.style.setProperty('--y', `${Math.cos(index * 2.3) * 0.09}em`);
+    letter.style.setProperty('--c', `var(--color-${(index % 5) + 1})`);
+  });
+}
+
+function onPointerMove(event) {
+  pointer.x = (event.clientX / window.innerWidth - 0.5) * 2;
+  pointer.y = -(event.clientY / window.innerHeight - 0.5) * 2;
+}
+
+function onScroll() {
+  scroll.target = window.scrollY || document.documentElement.scrollTop;
+}
+
+function animate() {
+  const elapsed = clock.getElapsedTime();
+  scroll.current += (scroll.target - scroll.current) * 0.08;
+
+  background.material.uniforms.uTime.value = elapsed;
+  background.material.uniforms.uScroll.value = scroll.current;
+
+  world.rotation.z = Math.sin(elapsed * 0.22) * 0.018 + pointer.x * 0.012;
+  world.position.y = scroll.current * 0.0015;
+  photoGroup.position.y = -scroll.current * 0.003;
+  photoGroup.rotation.x = pointer.y * 0.045;
+  photoGroup.rotation.y = pointer.x * 0.04;
+
+  photoGroup.children.forEach((mesh, index) => {
+    mesh.material.uniforms.uTime.value = elapsed + index;
+    mesh.position.x = mesh.userData.baseX + Math.sin(elapsed * mesh.userData.speed + index) * mesh.userData.range;
+    mesh.position.y = mesh.userData.baseY + Math.cos(elapsed * mesh.userData.speed * 0.9 + index) * mesh.userData.range;
+    mesh.rotation.z += Math.sin(elapsed + index) * 0.0007;
+  });
+
+  scribbles.children.forEach((line, index) => {
+    line.rotation.z = Math.sin(elapsed * line.userData.speed + index) * 0.08;
+    line.position.y = Math.sin(elapsed * 0.35 + index) * 0.12;
+  });
+
+  const dots = crayonGroup.children[0];
+  if (dots) {
+    dots.rotation.z = elapsed * 0.025;
+    dots.rotation.x = Math.sin(elapsed * 0.18) * 0.08;
+  }
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+
+updateCamera();
+updateDomWiggle();
+window.addEventListener('resize', updateCamera);
+window.addEventListener('pointermove', onPointerMove);
+window.addEventListener('scroll', onScroll, { passive: true });
+animate();
