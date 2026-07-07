@@ -24,6 +24,12 @@ const IDLE_DELAY = 1.45;
 const loaderState = { active: true, released: false };
 const idle = { current: 0, target: 0, lastActivity: 0 };
 const introLoader = document.querySelector('.intro-loader');
+const prizePopup = document.querySelector('.prize-popup');
+const prizeClose = document.querySelector('.prize-popup-close');
+const prizeClaim = document.querySelector('.prize-popup-claim');
+const prizeCopy = document.querySelector('.prize-popup-copy');
+const prizeSound = new Audio('/assets/vegetarindo2.mp3');
+prizeSound.preload = 'auto';
 
 const imageAssets = [
   { src: '/assets/logo.png', title: 'logo' },
@@ -370,7 +376,43 @@ function releaseLoader() {
   document.body.classList.add('is-loaded');
   introLoader?.setAttribute('aria-hidden', 'true');
   registerActivity();
+  window.setTimeout(() => {
+    placePrizePopup();
+    prizePopup?.classList.add('is-visible');
+  }, 650);
 }
+
+function placePrizePopup() {
+  if (!prizePopup) return;
+
+  const margin = window.innerWidth < 560 ? 18 : 34;
+  const rect = prizePopup.getBoundingClientRect();
+  const width = rect.width || 305;
+  const height = Math.max(rect.height || 280, 430);
+  const maxX = Math.max(margin, window.innerWidth - width - margin);
+  const maxY = Math.max(margin, window.innerHeight - height - margin);
+  const x = margin + Math.random() * Math.max(0, maxX - margin);
+  const y = margin + Math.random() * Math.max(0, maxY - margin);
+  const tilt = -4 + Math.random() * 8;
+
+  prizePopup.style.setProperty('--prize-x', `${Math.round(x)}px`);
+  prizePopup.style.setProperty('--prize-y', `${Math.round(y)}px`);
+  prizePopup.style.setProperty('--prize-tilt', `${tilt.toFixed(2)}deg`);
+}
+
+prizeClose?.addEventListener('click', () => {
+  prizePopup?.classList.remove('is-visible');
+});
+
+prizeClaim?.addEventListener('click', () => {
+  prizePopup?.classList.add('is-claimed');
+  if (prizeCopy) {
+    prizeCopy.textContent = 'Payment failed successfully. Your million dollars became one extremely bullish JPEG.';
+  }
+  prizeClaim.textContent = 'RECEIVED IN VIBES';
+  prizeSound.currentTime = 0;
+  prizeSound.play().catch(() => {});
+});
 
 const textureLoader = new THREE.TextureLoader();
 textureLoader.setCrossOrigin('anonymous');
