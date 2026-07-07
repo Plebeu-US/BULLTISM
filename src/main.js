@@ -222,6 +222,7 @@ function makeWobblyMaterial(texture, colorBoost = 1) {
       uBoost: { value: colorBoost },
       uAlpha: { value: 1 },
       uIdle: { value: 0 },
+      uSoftMask: { value: 0 },
     },
     transparent: true,
     side: THREE.DoubleSide,
@@ -256,6 +257,7 @@ function makeWobblyMaterial(texture, colorBoost = 1) {
       uniform float uBoost;
       uniform float uAlpha;
       uniform float uIdle;
+      uniform float uSoftMask;
       varying vec2 vUv;
       varying float vWobble;
 
@@ -278,28 +280,19 @@ function makeWobblyMaterial(texture, colorBoost = 1) {
         tex.rgb = mix(tex.rgb, tex.rgb * vec3(1.08, 1.02, 0.92), 0.2 * uBoost);
         tex.rgb += vec3(0.08, 0.18, 0.18) * max(0.0, sin((uv.x + uv.y) * 42.0 + uTime * 1.6)) * uIdle * 0.22;
 
-        float border = smoothstep(0.03, 0.0, min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y)));
-        tex.rgb = mix(tex.rgb, vec3(0.0), border * 0.85);
+        vec2 maskUv = vUv;
+        float edgeDistance = min(min(maskUv.x, 1.0 - maskUv.x), min(maskUv.y, 1.0 - maskUv.y));
+        float organicEdge = edgeDistance + sin(maskUv.y * 24.0 + uTime * 0.8) * 0.02 + cos(maskUv.x * 29.0 - uTime * 0.7) * 0.016;
+        float edgeMask = smoothstep(0.0, 0.22, organicEdge);
+        vec2 blobUv = (maskUv - 0.5) * vec2(1.08, 0.9);
+        float blobNoise = sin(maskUv.x * 18.0 + uTime * 0.65) * 0.028 + cos(maskUv.y * 22.0 - uTime * 0.55) * 0.024;
+        float blobMask = 1.0 - smoothstep(0.48, 0.68, length(blobUv) + blobNoise);
+        float mask = mix(1.0, edgeMask * blobMask, uSoftMask);
 
-        gl_FragColor = vec4(tex.rgb, tex.a * uAlpha);
+        gl_FragColor = vec4(tex.rgb, tex.a * uAlpha * mask);
       }
     `,
   });
-}
-
-function makeOutline(width, height, color = 0x050505) {
-  const shape = new THREE.Shape();
-  const jitter = 0.05;
-  shape.moveTo(-width / 2 - jitter, -height / 2 + 0.02);
-  shape.lineTo(width / 2 + 0.03, -height / 2 - jitter);
-  shape.lineTo(width / 2 - 0.02, height / 2 + jitter);
-  shape.lineTo(-width / 2 - 0.04, height / 2 - 0.03);
-  shape.lineTo(-width / 2 - jitter, -height / 2 + 0.02);
-
-  const points = shape.getPoints(5);
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
-  const material = new THREE.LineBasicMaterial({ color, linewidth: 4 });
-  return new THREE.Line(geometry, material);
 }
 
 function createCrayonStroke(index) {
@@ -412,9 +405,6 @@ imageAssets.forEach((asset, index) => {
       title: asset.title,
     };
 
-    const outline = makeOutline(width, height);
-    mesh.add(outline);
-
     photoGroup.add(mesh);
 
     const introWidth = isBanner ? 3.65 : 1.48 + (index % 4) * 0.18;
@@ -423,6 +413,7 @@ imageAssets.forEach((asset, index) => {
     introMaterial.depthTest = false;
     introMaterial.depthWrite = false;
     introMaterial.uniforms.uAlpha.value = 0;
+    introMaterial.uniforms.uSoftMask.value = 1;
 
     const introMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(introWidth, introHeight, 18, 18),
@@ -437,7 +428,6 @@ imageAssets.forEach((asset, index) => {
       laneY: Math.cos(index * 2.17) * (0.32 + (index % 4) * 0.1),
       maxScale: isBanner ? 2.6 : 3.15 + (index % 3) * 0.35,
     };
-    introMesh.add(makeOutline(introWidth, introHeight));
     introGroup.add(introMesh);
   });
 });
