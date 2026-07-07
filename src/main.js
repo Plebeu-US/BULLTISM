@@ -153,15 +153,6 @@ const idleWaterOverlay = new THREE.Mesh(
         return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
       }
 
-      float bubble(vec2 uv, vec2 center, float radius, float width) {
-        float d = distance(uv, center);
-        float outer = 1.0 - smoothstep(radius, radius + width, d);
-        float inner = smoothstep(radius - width, radius, d);
-        float ring = outer * inner;
-        float glint = 1.0 - smoothstep(0.0, radius * 0.42, distance(uv, center + vec2(-radius * 0.25, radius * 0.22)));
-        return ring + glint * 0.36;
-      }
-
       void main() {
         vec2 uv = vUv;
         vec2 waveUv = uv;
@@ -172,32 +163,15 @@ const idleWaterOverlay = new THREE.Mesh(
         caustic *= sin((waveUv.x - waveUv.y) * 27.0 - uTime * 1.25);
         caustic = smoothstep(0.42, 0.95, caustic);
 
-        float bubbles = 0.0;
-        for (int i = 0; i < 12; i++) {
-          float fi = float(i);
-          vec2 seed = vec2(hash(vec2(fi, 1.7)), hash(vec2(fi, 9.2)));
-          vec2 center = seed;
-          center.y = fract(center.y + uTime * (0.018 + fi * 0.002));
-          center.x += sin(uTime * 0.35 + fi) * 0.025;
-          bubbles += bubble(uv, center, 0.045 + hash(seed * 5.0) * 0.09, 0.006 + hash(seed * 7.0) * 0.006);
-        }
-
-        float bigBubbles = 0.0;
-        bigBubbles += bubble(uv, vec2(0.22 + sin(uTime * 0.22) * 0.025, 0.28), 0.16, 0.009);
-        bigBubbles += bubble(uv, vec2(0.56 + sin(uTime * 0.18 + 2.0) * 0.03, 0.44), 0.21, 0.011);
-        bigBubbles += bubble(uv, vec2(0.82 + sin(uTime * 0.2 + 4.0) * 0.02, 0.72), 0.14, 0.008);
-        bubbles += bigBubbles * 0.9;
-
         vec2 centerUv = uv - 0.5;
         float centerRipple = sin(length(centerUv) * 46.0 - uTime * 2.4) * 0.5 + 0.5;
         centerRipple *= 1.0 - smoothstep(0.05, 0.72, length(centerUv));
 
         vec3 water = mix(vec3(0.64, 0.96, 1.0), vec3(0.08, 0.53, 0.72), caustic * 0.55);
-        water += vec3(1.0) * bubbles * 0.72;
         water += vec3(0.45, 0.9, 1.0) * centerRipple * 0.28;
 
-        float alpha = (caustic * 0.22 + bubbles * 0.52 + bigBubbles * 0.18 + centerRipple * 0.08) * uIdle;
-        alpha = min(alpha, 0.52);
+        float alpha = (caustic * 0.2 + centerRipple * 0.08) * uIdle;
+        alpha = min(alpha, 0.28);
         alpha *= smoothstep(0.0, 0.35, uIdle);
 
         gl_FragColor = vec4(water, alpha);

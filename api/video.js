@@ -5,9 +5,12 @@ export default function handler(_request, response) {
 
   response.end(
     JSON.stringify({
-      webmUrl: process.env.BULLTISM_VIDEO_WEBM_URL || '',
-      mp4Url: process.env.BULLTISM_VIDEO_MP4_URL || '',
-      source: 'manual-env',
+      webmUrl: process.env.BULLTISM_VIDEO_WEBM_URL || '/videos/bulltism-video.webm',
+      mp4Url: process.env.BULLTISM_VIDEO_MP4_URL || '/videos/bulltism-video.mp4',
+      channel: 'standard',
+      filename: 'bulltism-video.mp4',
+      pathname: 'videos/bulltism-video.mp4',
+      source: 'local-public-video',
       updatedAt: new Date().toISOString(),
     }),
   );
