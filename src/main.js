@@ -30,6 +30,11 @@ const prizeClaim = document.querySelector('.prize-popup-claim');
 const prizeCopy = document.querySelector('.prize-popup-copy');
 const prizeSound = new Audio('/assets/vegetarindo2.mp3');
 prizeSound.preload = 'auto';
+const solPopup = document.querySelector('.sol-popup');
+const solClose = document.querySelector('.sol-popup-close');
+const solClaim = document.querySelector('.sol-popup-claim');
+const solVideo = document.querySelector('.sol-popup-video');
+const solVideoWrap = document.querySelector('.sol-popup-video-wrap');
 
 const imageAssets = [
   { src: '/assets/logo.png', title: 'logo' },
@@ -380,6 +385,10 @@ function releaseLoader() {
     placePrizePopup();
     prizePopup?.classList.add('is-visible');
   }, 650);
+  window.setTimeout(() => {
+    placeSolPopup();
+    solPopup?.classList.add('is-visible');
+  }, 2450);
 }
 
 function placePrizePopup() {
@@ -400,6 +409,24 @@ function placePrizePopup() {
   prizePopup.style.setProperty('--prize-tilt', `${tilt.toFixed(2)}deg`);
 }
 
+function placeSolPopup() {
+  if (!solPopup) return;
+
+  const margin = window.innerWidth < 560 ? 18 : 34;
+  const rect = solPopup.getBoundingClientRect();
+  const width = Math.max(rect.width || 330, solPopup.classList.contains('is-playing') ? 430 : 330);
+  const height = Math.max(rect.height || 240, solPopup.classList.contains('is-playing') ? 560 : 330);
+  const maxX = Math.max(margin, window.innerWidth - width - margin);
+  const maxY = Math.max(margin, window.innerHeight - height - margin);
+  const x = margin + Math.random() * Math.max(0, maxX - margin);
+  const y = margin + Math.random() * Math.max(0, maxY - margin);
+  const tilt = -5 + Math.random() * 10;
+
+  solPopup.style.setProperty('--sol-x', `${Math.round(x)}px`);
+  solPopup.style.setProperty('--sol-y', `${Math.round(y)}px`);
+  solPopup.style.setProperty('--sol-tilt', `${tilt.toFixed(2)}deg`);
+}
+
 prizeClose?.addEventListener('click', () => {
   prizePopup?.classList.remove('is-visible');
 });
@@ -412,6 +439,22 @@ prizeClaim?.addEventListener('click', () => {
   prizeClaim.textContent = 'RECEIVED IN VIBES';
   prizeSound.currentTime = 0;
   prizeSound.play().catch(() => {});
+});
+
+solClose?.addEventListener('click', () => {
+  solPopup?.classList.remove('is-visible');
+  solVideo?.pause();
+});
+
+solClaim?.addEventListener('click', () => {
+  solPopup?.classList.add('is-playing');
+  solVideoWrap?.removeAttribute('aria-hidden');
+  solClaim.textContent = 'MIRROR MODE OPENED';
+  window.requestAnimationFrame(placeSolPopup);
+  if (solVideo) {
+    solVideo.currentTime = 0;
+    solVideo.play().catch(() => {});
+  }
 });
 
 const textureLoader = new THREE.TextureLoader();

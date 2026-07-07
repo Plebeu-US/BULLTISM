@@ -35,7 +35,8 @@ body.is-loading {
 body.is-loading .top-strip,
 body.is-loading main,
 body.is-loading .site-footer,
-body.is-loading .prize-popup {
+body.is-loading .prize-popup,
+body.is-loading .sol-popup {
   opacity: 0;
   visibility: hidden;
 }
@@ -304,6 +305,159 @@ body.is-loading .intro-loader {
   50% {
     filter: saturate(1.55) brightness(1.15);
   }
+}
+
+.sol-popup {
+  position: fixed;
+  top: var(--sol-y, 1.4rem);
+  left: var(--sol-x, 1.4rem);
+  z-index: 31;
+  display: grid;
+  gap: 0.45rem;
+  width: min(90vw, 330px);
+  max-height: min(86vh, 620px);
+  overflow: auto;
+  padding: 0.78rem;
+  border: 5px solid var(--ink);
+  background:
+    repeating-linear-gradient(12deg, rgba(7, 104, 183, 0.94) 0 13px, rgba(53, 168, 73, 0.94) 13px 25px),
+    white;
+  color: var(--ink);
+  box-shadow: 8px 9px 0 var(--ink);
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-22px, 30px) rotate(var(--sol-tilt, -3deg)) scale(0.86);
+  transition:
+    opacity 180ms ease,
+    visibility 180ms ease,
+    transform 230ms cubic-bezier(0.2, 1.35, 0.35, 1);
+}
+
+.sol-popup.is-visible {
+  opacity: 1;
+  visibility: visible;
+  animation: prize-jiggle 680ms steps(2, end) infinite reverse;
+}
+
+.sol-popup.is-visible:not(.is-playing) {
+  transform: translate(0, 0) rotate(var(--sol-tilt, -3deg)) scale(1);
+}
+
+.sol-popup.is-playing {
+  width: min(92vw, 430px);
+  background:
+    repeating-linear-gradient(-10deg, rgba(9, 9, 9, 0.9) 0 16px, rgba(255, 143, 31, 0.95) 16px 31px),
+    white;
+  transform: translate(0, 0) rotate(calc(var(--sol-tilt, -3deg) * -0.45)) scale(1);
+}
+
+.sol-popup-close {
+  position: absolute;
+  top: -13px;
+  right: -12px;
+  display: inline-grid;
+  place-items: center;
+  width: 31px;
+  aspect-ratio: 1;
+  border: 3px solid var(--ink);
+  background: white;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 3px 3px 0 var(--ink);
+  cursor: pointer;
+}
+
+.sol-popup-kicker {
+  margin: 0;
+  padding: 0.14rem 0.36rem;
+  width: fit-content;
+  border: 2px solid var(--ink);
+  background: var(--color-2);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.sol-popup strong {
+  display: block;
+  padding: 0.44rem 0.5rem;
+  border: 3px solid var(--ink);
+  background: white;
+  color: var(--color-3);
+  font-size: clamp(1.35rem, 6vw, 2.2rem);
+  line-height: 0.92;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--color-2);
+  transform: rotate(-1deg);
+}
+
+.sol-popup-copy,
+.sol-popup-video-wrap p {
+  display: block;
+  margin: 0;
+  padding: 0.34rem 0.45rem;
+  border: 2px solid var(--ink);
+  background: rgba(255, 255, 255, 0.95);
+  font-size: 0.85rem;
+  font-weight: 900;
+  line-height: 1.14;
+}
+
+.sol-popup-claim {
+  min-height: 44px;
+  border: 4px solid var(--ink);
+  outline: 3px dotted white;
+  outline-offset: -9px;
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent) -120% 0 / 55% 100% no-repeat,
+    repeating-linear-gradient(8deg, var(--color-1) 0 12px, var(--color-5) 12px 24px);
+  color: white;
+  font: inherit;
+  font-size: 0.96rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink);
+  box-shadow:
+    5px 6px 0 var(--ink),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transform: rotate(1.7deg);
+  animation: claim-button-flash 720ms steps(2, end) infinite;
+}
+
+.sol-popup-claim:hover,
+.sol-popup-claim:focus-visible,
+.sol-popup-close:hover,
+.sol-popup-close:focus-visible {
+  translate: 2px 2px;
+  box-shadow: 2px 3px 0 var(--ink);
+}
+
+.sol-popup-claim:hover,
+.sol-popup-claim:focus-visible {
+  background-position: 180% 0, 0 0;
+}
+
+.sol-popup-video-wrap {
+  display: none;
+  gap: 0.45rem;
+}
+
+.sol-popup.is-playing .sol-popup-video-wrap {
+  display: grid;
+}
+
+.sol-popup-video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 4px solid var(--ink);
+  background: #050505;
+  box-shadow: 4px 5px 0 var(--ink);
+  object-fit: cover;
 }
 
 img {
