@@ -1152,6 +1152,7 @@ h2 {
   position: relative;
   z-index: 1;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: clamp(1rem, 4vw, 2rem);
@@ -1275,6 +1276,57 @@ h2 {
   background: #090909;
   color: white;
   transform: rotate(2deg);
+}
+
+.contract-copy {
+  position: relative;
+  flex: 1 0 100%;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin-top: 0.25rem;
+  padding: clamp(0.72rem, 2vw, 1rem);
+  border: 5px solid var(--ink);
+  background:
+    radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.9), transparent 28%),
+    linear-gradient(90deg, var(--color-2), var(--color-4), var(--color-3), var(--color-5));
+  color: var(--ink);
+  font: inherit;
+  font-size: clamp(0.78rem, 2.2vw, 1.16rem);
+  font-weight: 900;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+  text-align: center;
+  cursor: pointer;
+  box-shadow:
+    6px 7px 0 var(--ink),
+    0 0 0 7px rgba(255, 223, 52, 0.38),
+    0 0 32px rgba(53, 168, 73, 0.72),
+    0 0 62px rgba(7, 104, 183, 0.48);
+  transform: rotate(-0.8deg);
+  animation: contract-aura 1.65s steps(2, end) infinite;
+}
+
+.contract-copy:hover,
+.contract-copy:focus-visible,
+.contract-copy.is-copied {
+  translate: 2px 2px;
+  box-shadow:
+    3px 4px 0 var(--ink),
+    0 0 0 9px rgba(255, 223, 52, 0.62),
+    0 0 46px rgba(53, 168, 73, 0.95),
+    0 0 86px rgba(7, 104, 183, 0.75);
+}
+
+@keyframes contract-aura {
+  0%,
+  100% {
+    filter: saturate(1.05) brightness(1);
+  }
+
+  50% {
+    filter: saturate(1.45) brightness(1.12);
+  }
 }
 
 @media (max-width: 860px) {
