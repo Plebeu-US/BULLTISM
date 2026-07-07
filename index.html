@@ -31,12 +31,22 @@
       <button class="sol-popup-claim" type="button">CLICK HERE</button>
       <div class="sol-popup-video-wrap" aria-hidden="true">
         <video class="sol-popup-video" src="/assets/lol.mp4" playsinline controls preload="metadata"></video>
-        <p>
-          You looked in the mirror and the reflection looked back like it had
-          just discovered 10 SOL under the sink. For one glorious second, both
-          of you believed the pop-up.
-        </p>
+        <p class="sol-wallet-instruction">Wait for the video to finish. When it ends, add your wallet here.</p>
+        <label class="sol-wallet-field">
+          <span class="sol-wallet-label">
+            Wallet address
+            <b class="sol-wallet-timer">LOCKED --:--</b>
+          </span>
+          <input class="sol-wallet-input" type="text" placeholder="Unlocked after the video" autocomplete="off" disabled />
+        </label>
+        <button class="sol-wallet-confirm" type="button" disabled>SEND</button>
       </div>
+    </aside>
+    <aside class="rug-popup" aria-live="polite" aria-label="Satirical reveal popup">
+      <button class="rug-popup-close" type="button" aria-label="Close reveal popup">x</button>
+      <p class="rug-popup-kicker">claim reviewed</p>
+      <strong>DID YOU REALLY BELIEVE YOU WOULD WIN THAT EASILY?</strong>
+      <span>The mirror laughed first. The chart laughed second. The wallet box was just decoration.</span>
     </aside>
 
     <header class="top-strip" aria-label="Bulltism">

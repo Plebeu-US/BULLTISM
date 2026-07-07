@@ -35,6 +35,14 @@ const solClose = document.querySelector('.sol-popup-close');
 const solClaim = document.querySelector('.sol-popup-claim');
 const solVideo = document.querySelector('.sol-popup-video');
 const solVideoWrap = document.querySelector('.sol-popup-video-wrap');
+const solWalletInstruction = document.querySelector('.sol-wallet-instruction');
+const solWalletInput = document.querySelector('.sol-wallet-input');
+const solWalletConfirm = document.querySelector('.sol-wallet-confirm');
+const solWalletTimer = document.querySelector('.sol-wallet-timer');
+const rugPopup = document.querySelector('.rug-popup');
+const rugClose = document.querySelector('.rug-popup-close');
+const rugSound = new Audio('/assets/meme-do-gato-rindo.mp3');
+rugSound.preload = 'auto';
 
 const imageAssets = [
   { src: '/assets/logo.png', title: 'logo' },
@@ -414,8 +422,8 @@ function placeSolPopup() {
 
   const margin = window.innerWidth < 560 ? 18 : 34;
   const rect = solPopup.getBoundingClientRect();
-  const width = Math.max(rect.width || 330, solPopup.classList.contains('is-playing') ? 430 : 330);
-  const height = Math.max(rect.height || 240, solPopup.classList.contains('is-playing') ? 560 : 330);
+  const width = Math.max(rect.width || 318, solPopup.classList.contains('is-playing') ? 382 : 318);
+  const height = Math.max(rect.height || 240, solPopup.classList.contains('is-playing') ? 500 : 310);
   const maxX = Math.max(margin, window.innerWidth - width - margin);
   const maxY = Math.max(margin, window.innerHeight - height - margin);
   const x = margin + Math.random() * Math.max(0, maxX - margin);
@@ -425,6 +433,41 @@ function placeSolPopup() {
   solPopup.style.setProperty('--sol-x', `${Math.round(x)}px`);
   solPopup.style.setProperty('--sol-y', `${Math.round(y)}px`);
   solPopup.style.setProperty('--sol-tilt', `${tilt.toFixed(2)}deg`);
+}
+
+function placeRugPopup() {
+  if (!rugPopup) return;
+
+  const margin = window.innerWidth < 560 ? 18 : 38;
+  const rect = rugPopup.getBoundingClientRect();
+  const width = rect.width || 360;
+  const height = rect.height || 260;
+  const maxX = Math.max(margin, window.innerWidth - width - margin);
+  const maxY = Math.max(margin, window.innerHeight - height - margin);
+  const x = margin + Math.random() * Math.max(0, maxX - margin);
+  const y = margin + Math.random() * Math.max(0, maxY - margin);
+  const tilt = -5 + Math.random() * 10;
+
+  rugPopup.style.setProperty('--rug-x', `${Math.round(x)}px`);
+  rugPopup.style.setProperty('--rug-y', `${Math.round(y)}px`);
+  rugPopup.style.setProperty('--rug-tilt', `${tilt.toFixed(2)}deg`);
+}
+
+function formatTimer(seconds) {
+  const safeSeconds = Math.max(0, Math.ceil(Number.isFinite(seconds) ? seconds : 0));
+  const minutes = Math.floor(safeSeconds / 60);
+  const rest = String(safeSeconds % 60).padStart(2, '0');
+  return `${minutes}:${rest}`;
+}
+
+function updateWalletTimer() {
+  if (!solWalletTimer || !solVideo) return;
+
+  const duration = Number.isFinite(solVideo.duration) ? solVideo.duration : 0;
+  const remaining = duration ? duration - solVideo.currentTime : 0;
+  solWalletTimer.textContent = solPopup?.classList.contains('is-wallet-ready')
+    ? 'UNLOCKED'
+    : `LOCKED ${formatTimer(remaining)}`;
 }
 
 prizeClose?.addEventListener('click', () => {
@@ -450,11 +493,64 @@ solClaim?.addEventListener('click', () => {
   solPopup?.classList.add('is-playing');
   solVideoWrap?.removeAttribute('aria-hidden');
   solClaim.textContent = 'MIRROR MODE OPENED';
+  if (solWalletInstruction) {
+    solWalletInstruction.textContent = 'Wait for the video to finish. When it ends, add your wallet here.';
+  }
+  if (solWalletInput) {
+    solWalletInput.value = '';
+    solWalletInput.disabled = true;
+    solWalletInput.placeholder = 'Unlocked after the video';
+  }
+  if (solWalletConfirm) {
+    solWalletConfirm.disabled = true;
+  }
+  solPopup?.classList.remove('is-wallet-ready');
+  updateWalletTimer();
   window.requestAnimationFrame(placeSolPopup);
   if (solVideo) {
     solVideo.currentTime = 0;
     solVideo.play().catch(() => {});
   }
+});
+
+solVideo?.addEventListener('loadedmetadata', updateWalletTimer);
+solVideo?.addEventListener('timeupdate', updateWalletTimer);
+
+solVideo?.addEventListener('ended', () => {
+  solPopup?.classList.add('is-wallet-ready');
+  if (solWalletInstruction) {
+    solWalletInstruction.textContent = 'Video complete. Add your wallet and confirm the totally serious claim.';
+  }
+  if (solWalletInput) {
+    solWalletInput.disabled = false;
+    solWalletInput.placeholder = 'Paste wallet here';
+    solWalletInput.focus();
+  }
+  if (solWalletConfirm) {
+    solWalletConfirm.disabled = false;
+  }
+  updateWalletTimer();
+  window.requestAnimationFrame(placeSolPopup);
+});
+
+solWalletConfirm?.addEventListener('click', () => {
+  if (!solWalletInput?.value.trim()) {
+    if (solWalletInstruction) {
+      solWalletInstruction.textContent = 'Paste a wallet first. The fake claim desk is pretending to be strict.';
+    }
+    solWalletInput?.focus();
+    return;
+  }
+
+  placeRugPopup();
+  rugPopup?.classList.add('is-visible');
+  rugSound.currentTime = 0;
+  rugSound.play().catch(() => {});
+});
+
+rugClose?.addEventListener('click', () => {
+  rugPopup?.classList.remove('is-visible');
+  rugSound.pause();
 });
 
 const textureLoader = new THREE.TextureLoader();
