@@ -161,7 +161,7 @@ a {
   backdrop-filter: blur(8px);
 }
 
-.top-strip img {
+.top-strip > img {
   width: 54px;
   aspect-ratio: 1;
   object-fit: cover;
@@ -208,9 +208,15 @@ a {
   box-shadow: 3px 4px 0 var(--ink);
 }
 
-.nav-social svg {
+.nav-social svg,
+.nav-social img {
   width: 25px;
   height: 25px;
+}
+
+.nav-social img,
+.social-link img {
+  object-fit: contain;
 }
 
 .nav-social path,
@@ -733,10 +739,17 @@ h2 {
   box-shadow: 2px 3px 0 var(--ink);
 }
 
-.social-link svg {
+.social-link svg,
+.social-link img {
   width: 32px;
   height: 32px;
   flex: 0 0 auto;
+}
+
+.dex-link {
+  background: #070707;
+  color: white;
+  transform: rotate(1.3deg);
 }
 
 .telegram-link {
