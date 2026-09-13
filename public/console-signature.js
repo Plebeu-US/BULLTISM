@@ -1,6 +1,5 @@
 (function matrixConsoleSignature() {
-  const telegram = 'https://t.me/plebeu';
-  const message = 'Website built by t.me/plebeu. I am not affiliated with this project itself; I only built the website.';
+  const message = 'Website built by Plebeu. I am not affiliated with this project itself; I only built the website.';
   const glyphs = '01BULLTISM$#@<>/\\{}[]()+=_-*';
   let frame = 0;
 
@@ -27,7 +26,6 @@
   function draw() {
     const revealAmount = Math.min(message.length, Math.floor(frame * 9));
     const title = revealText(message, revealAmount);
-    const telegramReveal = `Telegram: ${telegram}`;
     const matrixBlock = Array.from({ length: 8 }, (_, index) => {
       const width = 54 + ((frame + index) % 10);
       return randomLine(width);
@@ -35,10 +33,9 @@
 
     console.clear();
     console.log(
-      `%c${matrixBlock}\n\n%c${title}\n%c${telegramReveal}\n\n%c${matrixBlock}`,
+      `%c${matrixBlock}\n\n%c${title}\n\n%c${matrixBlock}`,
       'color:#35a849;font-family:monospace;font-weight:700;line-height:1.18;',
       'color:#ffdf34;background:#090909;font-family:monospace;font-size:16px;font-weight:900;padding:6px 8px;',
-      'color:#2aabee;background:#090909;font-family:monospace;font-size:14px;font-weight:900;padding:4px 8px;',
       'color:#35a849;font-family:monospace;font-weight:700;line-height:1.18;',
     );
 

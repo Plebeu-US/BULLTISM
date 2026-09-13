@@ -43,7 +43,6 @@ const rugPopup = document.querySelector('.rug-popup');
 const rugClose = document.querySelector('.rug-popup-close');
 const rugSound = new Audio('/assets/meme-do-gato-rindo.mp3');
 rugSound.preload = 'auto';
-const contractButton = document.querySelector('.contract-copy');
 
 const imageAssets = [
   { src: '/assets/logo.png', title: 'logo' },
@@ -552,37 +551,6 @@ solWalletConfirm?.addEventListener('click', () => {
 rugClose?.addEventListener('click', () => {
   rugPopup?.classList.remove('is-visible');
   rugSound.pause();
-});
-
-async function copyText(text) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.setAttribute('readonly', '');
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand('copy');
-  textarea.remove();
-}
-
-contractButton?.addEventListener('click', async () => {
-  const contract = contractButton.dataset.contract || contractButton.textContent.trim();
-
-  try {
-    await copyText(contract);
-    contractButton.classList.add('is-copied');
-    window.setTimeout(() => {
-      contractButton.classList.remove('is-copied');
-    }, 1200);
-  } catch {
-    contractButton.classList.add('is-copied');
-  }
 });
 
 const textureLoader = new THREE.TextureLoader();
